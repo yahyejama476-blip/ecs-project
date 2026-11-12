@@ -7,11 +7,6 @@ module "ecr" {
   name   = "it-tools"
 }
 
-data "aws_acm_certificate" "tm" {
-  domain      = "tm.labs.yahyejama.win"
-  statuses    = ["ISSUED"]
-  most_recent = true
-}
 
 module "alb" {
   source = "./modules/alb"
@@ -19,7 +14,7 @@ module "alb" {
   name              = "it-tools"
   vpc_id            = module.vpc.vpc_id
   public_subnet_ids = module.vpc.public_subnet_ids
-  certificate_arn   = data.aws_acm_certificate.tm.arn
+  certificate_arn   = aws_acm_certificate_validation.tm.certificate_arn
 }
 
 module "ecs" {
