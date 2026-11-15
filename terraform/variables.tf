@@ -4,6 +4,12 @@ variable "image_tag" {
 }
 
 variable "cloudflare_zone_id" {
-  description = "16fe69fa5e8f26a8cd6dfff5c29f034e"
+  description = "Cloudflare zone ID for yahyejama.win"
   type        = string
+}
+
+variable "github_repo" {
+  description = "GitHub repo allowed to assume the role, as owner/name"
+  type        = string
+  default     = "yahyejama476-blip/ecs-project"
 }
