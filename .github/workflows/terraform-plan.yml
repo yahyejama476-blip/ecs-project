@@ -1,0 +1,62 @@
+name: Terraform plan
+
+on:
+  pull_request:
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform-plan.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: eu-west-2
+  ECR_REPOSITORY: it-tools
+  TF_IN_AUTOMATION: "true"
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+defaults:
+  run:
+    working-directory: terraform
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::615445513774:role/it-tools-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.1
+
+      - name: Find newest image tag in ECR
+        id: image
+        run: |
+          TAG=$(aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
+            --query 'sort_by(imageDetails[?imageTags!=`null`], &imagePushedAt)[-1].imageTags[0]' \
+            --output text)
+          if [ -z "$TAG" ] || [ "$TAG" = "None" ]; then echo "No image found in ECR"; exit 1; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Format check
+        run: terraform fmt -check -recursive
+
+      - name: Init
+        run: terraform init -input=false
+
+      - name: Validate
+        run: terraform validate
+
+      - name: Plan
+        run: terraform plan -input=false -no-color -var "image_tag=${{ steps.image.outputs.tag }}"
+
+      - name: Summary
+        run: echo "Plan ran for image tag \`${{ steps.image.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+        working-directory: .

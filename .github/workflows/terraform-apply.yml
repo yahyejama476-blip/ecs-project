@@ -1,0 +1,75 @@
+name: Terraform apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: terraform-main
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-west-2
+  ECR_REPOSITORY: it-tools
+  TF_IN_AUTOMATION: "true"
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+defaults:
+  run:
+    working-directory: terraform
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::615445513774:role/it-tools-github-actions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.1
+
+      - name: Find newest image tag in ECR
+        id: image
+        run: |
+          TAG=$(aws ecr describe-images --repository-name "$ECR_REPOSITORY" \
+            --query 'sort_by(imageDetails[?imageTags!=`null`], &imagePushedAt)[-1].imageTags[0]' \
+            --output text)
+          if [ -z "$TAG" ] || [ "$TAG" = "None" ]; then echo "No image found in ECR"; exit 1; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Init
+        run: terraform init -input=false
+
+      - name: Validate
+        run: terraform validate
+
+      - name: Apply
+        run: terraform apply -auto-approve -input=false -no-color -var "image_tag=${{ steps.image.outputs.tag }}"
+
+      - name: Post-deploy health check
+        working-directory: .
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /tmp/body -w '%{http_code}' https://tm.labs.yahyejama.win/health || true)
+            if [ "$code" = "200" ] && grep -q '"status":"ok"' /tmp/body; then
+              echo "Healthy on attempt $i"
+              echo "### Deployed image \`${{ steps.image.outputs.tag }}\`, health check passed" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $code"
+            sleep 20
+          done
+          echo "Site never became healthy"
+          exit 1
