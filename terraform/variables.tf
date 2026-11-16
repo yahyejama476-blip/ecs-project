@@ -1,3 +1,5 @@
+#Input variables for the ECS project
+
 variable "image_tag" {
   description = "Image tag (commit SHA) to deploy"
   type        = string
