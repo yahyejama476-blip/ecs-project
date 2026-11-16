@@ -9,7 +9,7 @@ variable "cloudflare_zone_id" {
 }
 
 variable "github_repo" {
-  description = "GitHub repo allowed to assume the role, as owner/name"
+  description = "GitHub repo in immutable form, as owner@owner-id/repo@repo-id"
   type        = string
-  default     = "yahyejama476-blip/ecs-project"
+  default     = "yahyejama476-blip@299951063/ecs-project@1418143830"
 }
