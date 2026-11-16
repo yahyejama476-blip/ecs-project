@@ -1,3 +1,4 @@
+# Input variables for the ECS project
 variable "image_tag" {
   description = "Image tag (commit SHA) to deploy"
   type        = string
@@ -6,6 +7,7 @@ variable "image_tag" {
 variable "cloudflare_zone_id" {
   description = "Cloudflare zone ID for yahyejama.win"
   type        = string
+  default     = "16fe69fa5e8f26a8cd6dfff5c29f034e"
 }
 
 variable "github_repo" {
